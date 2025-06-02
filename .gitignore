@@ -2,3 +2,5 @@ python_tests/input_folders.json
 python_tests/config.json
 *.mp4
 output_history
+__pycache__
+maybe_copyrighted

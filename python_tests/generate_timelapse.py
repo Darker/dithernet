@@ -14,7 +14,7 @@ print("Created file_list.txt with sorted images.")
 
 # Run ffmpeg to make the video
 ffmpeg_cmd = [
-    "ffmpeg", "-r", "5", "-f", "concat", "-safe", "0", "-i", "file_list.txt",
+    "ffmpeg", "-r", "8", "-f", "concat", "-safe", "0", "-i", "file_list.txt",
     "-vf", "scale=256:256:flags=neighbor", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18",
     "output.mp4"
 ]

@@ -2,6 +2,9 @@ import math
 import tensorflow as tf
 from datetime import datetime, UTC
 from typing import TYPE_CHECKING, TypedDict
+import color_choices
+import output_convert
+import filename_utils
 
 import PicturesLRU
 from build_ditherer_network import build_ditherer_network
@@ -82,7 +85,7 @@ def load_image(img_path: str, max_size=1024):
     return img
 
 raw_images_lru = PicturesLRU.PicturesLRU(capacity=100, picture_loader=lambda img_path: load_image(img_path, max_size=1024))
-
+color_choices_matrix = color_choices.get_color_choices(OUTPUT_DIMMS)
 # def resample_image(image, target_size=(32, 32)):
 
 def preprocess_image(img_path, downsample_factor=2, target_size=(32, 32)):
@@ -105,8 +108,8 @@ def preprocess_image(img_path, downsample_factor=2, target_size=(32, 32)):
     # Random Crop (Center Crop for simplicity)
     crop_size = target_size[0]  # Assume square crop
     h, w, _ = img.shape
-    start_x = (w - crop_size) // 2
-    start_y = (h - crop_size) // 2
+    start_x = 0
+    start_y = 0
     img = img[start_y:start_y+crop_size, start_x:start_x+crop_size]  # Crop
     
     img = img / 255.0  # Normalize
@@ -133,125 +136,22 @@ def data_generator(batch_size=32):
 # Create the models
 # color_selector = build_color_selector()
 color_decider = build_ditherer_network(INPUT_SHAPE[0:2], OUTPUT_DIMMS)
-if os.path.exists("./checkpoints/color_decider_latest.weights.h5"):
+network_checkpoint_dims_str = filename_utils.format_in_dimensions(INPUT_SHAPE[0:2], OUTPUT_DIMMS)
+network_checkpoint_file = f"color_decider_latest.{network_checkpoint_dims_str}.weights.h5"
+if os.path.exists("./checkpoints/"+network_checkpoint_file):
     print("Loading existing weights for color_decider...")
-    color_decider.load_weights("./checkpoints/color_decider_latest.weights.h5")
+    color_decider.load_weights("./checkpoints/"+network_checkpoint_file)
     print("Weights loaded successfully.")
 else:
     print("No existing weights found for color_decider. Starting from scratch.")
 
-# To make the next part readable
-color_map = {
-    "cyan": [0, 255, 255],  
-    "magenta": [255, 0, 255],
-    "yellow": [255, 255, 0],
-    "black": [0, 0, 0],     
-    "white": [255, 255, 255],
-    "green": [0, 255, 0],   
-    "red": [255, 0, 0],     
-    "blue": [0, 0, 255],    
-    "orange": [255, 165, 0],
-    "purple": [128, 0, 128],
-    "lightblue": [0, 0x85, 0xff],
-    "gray": [128, 128, 128],
-    "darkblue": [0, 0, 80],
-    "darkgreen": [0, 100, 0],
-    "lightgreen": [144, 238, 144],
-    "brown": [165, 42, 42],
-    "lightred": [255, 182, 193],
-    "pink": [255, 192, 203],
-    "darkred": [139, 0, 0],
-}
-
-# normalize color map values to [0, 1] range
-color_map = {k: np.array(v) / 255.0 for k, v in color_map.items()}
-
-# Todo: JSON?
-pixel_option_1 = np.array([
-    color_map["cyan"],
-    color_map["magenta"],
-    color_map["yellow"],
-    color_map["black"]
-])
-
-pixel_option_2 = np.array([
-    color_map["blue"],
-    color_map["darkgreen"],
-    color_map["red"],
-    color_map["white"]
-])
-
-pixel_option_3 = np.array([
-    color_map["green"],
-    color_map["orange"],
-    color_map["lightred"],
-    color_map["lightblue"]
-])
-
-pixel_option_4 = np.array([
-    color_map["green"],
-    color_map["yellow"],
-    color_map["blue"],
-    color_map["brown"]
-])
-
-pixel_option_5 = np.array([
-    color_map["red"],
-    color_map["darkblue"],
-    color_map["cyan"],
-    color_map["purple"]
-])
-pixel_option_6 = np.array([
-    color_map["lightred"],
-    color_map["darkgreen"],
-    color_map["pink"],
-    color_map["gray"]
-])
-pixel_option_7 = np.array([
-    color_map["yellow"],
-    color_map["darkred"],
-    color_map["lightblue"],
-    color_map["green"]
-])
-
-pixel_option_8 = np.array([
-    color_map["darkblue"],
-    color_map["lightgreen"],
-    color_map["orange"],
-    color_map["red"]
-])
-
-pixel_option_9 = np.array([
-    color_map["darkgreen"],
-    color_map["yellow"],
-    color_map["purple"],
-    color_map["cyan"]
-])
-
-all_pixel_options = [
-    pixel_option_1,
-    pixel_option_2,
-    pixel_option_3,
-    pixel_option_4,
-    pixel_option_5,
-    pixel_option_6,
-    pixel_option_7,
-    pixel_option_8,
-    pixel_option_9
-]
-options_count = len(all_pixel_options)
-
-# first run with preset color choices -  CMYK
-color_choices = np.array([
-    all_pixel_options[xcolor%options_count] for xcolor in range(OUTPUT_DIMMS[0]*OUTPUT_DIMMS[1])
-])
 
 def data_generator_with_color_choices(batch_size=32):
     """Yields batches of processed images with color choices."""
 
     images_generator = data_generator(batch_size)
     while True:
-        batch_color_choices = [color_choices for _ in range(batch_size)]
+        batch_color_choices = [color_choices_matrix for _ in range(batch_size)]
         
         yield np.array(batch_color_choices), np.array(next(images_generator))
 
@@ -308,22 +208,14 @@ def convert_to_image_tf(output_matrices, color_choices_batch):
     return mapped_images
 
 
-def convert_to_image_tf_no_learn(output_matrices, color_choices_batch):
-    '''
-    This function does the same as convert_to_image_tf, but the operation is
-    truly discrete and does not allow gradients to flow through it.
-    '''
-    batch_size, num_pixels, num_choices_per_px, num_colors = color_choices_batch.shape  # Extract dimensions
-    chosen_colors = tf.argmax(output_matrices, axis=2, output_type=tf.int32)
-    mapped_images = tf.gather(color_choices_batch, chosen_colors, batch_dims=2, axis=2, name="mapped_image_before_reshape")  # Shape: (batch_size, height*width, 3)
-    mapped_images = tf.reshape(mapped_images, (batch_size, OUTPUT_DIMMS[0], OUTPUT_DIMMS[1], 3))  # Reshape to (height, width, 3)
-    return mapped_images
 
 train_data = tf.data.Dataset.from_generator(
     lambda: data_generator_with_color_choices(32), 
     output_types=(tf.float32, tf.float32),  # Two inputs: color choices & image data
     output_shapes=((None, OUTPUT_DIMMS[0]*OUTPUT_DIMMS[1], 4, 3), (None, INPUT_SHAPE[0], INPUT_SHAPE[1], 3))  # First is color choices, second is image data
 )
+
+
 
 loss_fn = keras.losses.MeanSquaredError()
 optimizer = keras.optimizers.Adam(learning_rate=0.0001, 
@@ -371,10 +263,10 @@ def store_output_samples(img_path):
     # Get color choices from the first network
     # color_choices = color_selector.predict(img)
     # color_choices = np.reshape(color_choices, (1, INPUT_SHAPE[0], INPUT_SHAPE[1], NUM_COLORS, 3))
-    color_choices_batch = np.array([color_choices])  # Use the predefined color choices
+    color_choices_batch = np.array([color_choices_matrix])  # Use the predefined color choices
     # Get final output from the second network
     network_output = color_decider.predict([color_choices_batch, img], batch_size=1)
-    dither_output = convert_to_image_tf_no_learn(network_output, color_choices_batch)
+    dither_output = output_convert.to_image_tf_no_learn(network_output, color_choices_batch, OUTPUT_DIMMS)
     dither_output = tf.squeeze(dither_output, axis=0)  # Remove batch dimension
 
     
@@ -418,11 +310,11 @@ try:
             print(f"Epoch {epoch}, Step {step}, Loss: {loss}")
 
         if epoch % 10 == 0:  # Save every 10 epochs
-            color_decider.save_weights("./checkpoints/color_decider_latest.weights.h5".format(epoch))
+            color_decider.save_weights("./checkpoints/"+network_checkpoint_file)
             print(f"Checkpoint saved for epoch {epoch}")
 except KeyboardInterrupt:
     print("Training interrupted. Saving final weights...")
-    color_decider.save_weights("./checkpoints/color_decider_latest.weights.h5")
+    color_decider.save_weights("./checkpoints/"+network_checkpoint_file)
     print("Final weights saved.")
     store_output_samples(debug_config["demo_image"])
     #predict_image("/mnt/d/JAKUB/images/photos/eliska-portrety/results/DSC_6919.jpg")
