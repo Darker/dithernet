@@ -8,7 +8,8 @@ color_map = {
     "yellow": [255, 255, 0],
     "black": [0, 0, 0],     
     "white": [255, 255, 255],
-    "green": [0, 255, 0],   
+    "limegreen": [0, 255, 0],   
+    "green": [0, 128, 0],   
     "red": [255, 0, 0],     
     "blue": [0, 0, 255],    
     "orange": [255, 165, 0],
@@ -17,7 +18,7 @@ color_map = {
     "gray": [128, 128, 128],
     "darkblue": [0, 0, 60],
     "darkgreen": [0, 30, 0],
-    "lightgreen": [144, 238, 144],
+    "lightgreen": [144, 255, 144],
     "brown": [165, 42, 42],
     "lightred": [255, 182, 193],
     "pink": [255, 192, 203],
@@ -50,8 +51,8 @@ pixel_option_3 = np.array([
 ])
 
 pixel_option_4 = np.array([
-    color_map["green"],
-    color_map["yellow"],
+    color_map["limegreen"],
+    color_map["gray"],
     color_map["blue"],
     color_map["brown"]
 ])
@@ -86,20 +87,27 @@ pixel_option_9 = np.array([
     color_map["darkgreen"],
     color_map["yellow"],
     color_map["purple"],
-    color_map["cyan"]
+    color_map["darkblue"]
+])
+
+pixel_option_10 = np.array([
+    color_map["brown"],
+    color_map["limegreen"],
+    color_map["lightblue"],
+    color_map["gray"]
 ])
 
 pixel_option_blue_cmyk = np.array([
-    color_map["cyan"],
+    color_map["lightblue"],
     color_map["magenta"],
     color_map["yellow"],
     color_map["darkblue"]
 ])
 
 pixel_option_red_cmyk = np.array([
-    color_map["cyan"],
-    color_map["magenta"],
-    color_map["yellow"],
+    color_map["limegreen"],
+    color_map["pink"],
+    color_map["orange"],
     color_map["darkred"]
 ])
 
@@ -107,14 +115,15 @@ all_pixel_options = [
     pixel_option_1,
     pixel_option_2,
     pixel_option_3,
+    pixel_option_blue_cmyk,
     pixel_option_4,
     pixel_option_5,
-    pixel_option_blue_cmyk,
     pixel_option_6,
     pixel_option_7,
     pixel_option_red_cmyk,
     pixel_option_8,
-    pixel_option_9
+    pixel_option_9,
+    pixel_option_10
 ]
 options_count = len(all_pixel_options)
 
